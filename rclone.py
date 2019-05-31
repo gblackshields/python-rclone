@@ -141,7 +141,7 @@ class RClone(object):
                 logging.debug("rclone config: ~%s~", self.cfg)
                 cfg_file.write(self.cfg)
                 cfg_file.flush()
-                command_with_args += ["--config",cfg_file.name]
+                command_with_args += ["--config", cfg_file.name]
                 command_result = self._execute(command_with_args)
                 cfg_file.close()
 
