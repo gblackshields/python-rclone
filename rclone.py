@@ -36,7 +36,7 @@ if not logger.hasHandlers():
 
 
 
-class RClone:
+class RClone(object):
     """
     Wrapper class for rclone.
     """
@@ -46,8 +46,6 @@ class RClone:
         self.verbose = verbose
         self.dryrun = dryrun
 
-        #self.cfg = cfg.replace("\\n", "\n")
-        #logging = logging.getLogger("RClone")
 
     @property
     def config(self):
@@ -212,9 +210,3 @@ class RClone:
         return self.run_cmd(command="delete", extra_args=[dest] + flags)
 
 
-def with_config(cfg):
-    """
-    Configure a new RClone instance.
-    """
-    inst = RClone(cfg=cfg)
-    return inst
