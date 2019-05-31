@@ -24,15 +24,63 @@ import logging
 import subprocess
 import tempfile
 
+logger = logging.getLogger("RClone")
+if not logger.hasHandlers():
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(ch)
+
+
+
+
+
 
 class RClone:
     """
     Wrapper class for rclone.
     """
 
-    def __init__(self, cfg):
-        self.cfg = cfg.replace("\\n", "\n")
-        self.log = logging.getLogger("RClone")
+    def __init__(self, config=None,verbose=True,dryrun=False):
+        self.config = config
+        self.verbose = verbose
+        self.dryrun = dryrun
+
+        #self.cfg = cfg.replace("\\n", "\n")
+        #self.log = logging.getLogger("RClone")
+
+    @property
+    def config(self):
+        return self._config
+
+    @config.setter
+    def config(self, value=None):
+        self._config = value
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, value = True):
+        self._verbose = value
+
+    @property
+    def dryrun(self):
+        return self._dryrun
+
+    @dryrun.setter
+    def dryrun(self, value=False):
+        self._dryrun = value
+
+    def configure(self, cfg):
+        """
+        :param cfg: use custom configuration (system config will not be used)
+        :return:
+        """
+        self.config = cfg
+
+
 
     def _execute(self, command_with_args):
         """
@@ -50,9 +98,6 @@ class RClone:
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE) as proc:
                 (out, err) = proc.communicate()
-
-                #out = proc.stdout.read()
-                #err = proc.stderr.read()
 
                 self.log.debug(out)
                 if err:
@@ -84,18 +129,29 @@ class RClone:
             - command (string): the rclone command to execute.
             - extra_args (list): extra arguments to be passed to the rclone command
         """
-        # save the configuration in a temporary file
-        with tempfile.NamedTemporaryFile(mode='wt', delete=True) as cfg_file:
-            # cfg_file is automatically cleaned up by python
-            self.log.debug("rclone config: ~%s~", self.cfg)
-            cfg_file.write(self.cfg)
-            cfg_file.flush()
 
-            command_with_args = ["rclone", command, "--config", cfg_file.name]
-            command_with_args += extra_args
+        command_with_args = ["rclone", command] + extra_args
+        if self.dryrun == True:
+            command_with_args.append("--dry-run")
+        if self.verbose == True:
+            command_with_args.append("-v")
+
+        if self.config and isinstance(self.config, str):
+            # save the configuration in a temporary file
+            with tempfile.NamedTemporaryFile(mode='wt', delete=True) as cfg_file:
+                # cfg_file is automatically cleaned up by python
+                self.log.debug("rclone config: ~%s~", self.cfg)
+                cfg_file.write(self.cfg)
+                cfg_file.flush()
+                command_with_args += ["--config",cfg_file.name]
+                command_result = self._execute(command_with_args)
+                cfg_file.close()
+
+        else:
             command_result = self._execute(command_with_args)
-            cfg_file.close()
-            return command_result
+
+        return command_result
+
 
     def copy(self, source, dest, flags=[]):
         """
