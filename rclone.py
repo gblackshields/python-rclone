@@ -47,7 +47,7 @@ class RClone:
         self.dryrun = dryrun
 
         #self.cfg = cfg.replace("\\n", "\n")
-        #self.log = logging.getLogger("RClone")
+        #logging = logging.getLogger("RClone")
 
     @property
     def config(self):
@@ -91,7 +91,7 @@ class RClone:
                                          and its arguments. Each argument is given
                                          as a new element in the list.
         """
-        self.log.debug("Invoking : %s", " ".join(command_with_args))
+        logging.debug("Invoking : %s", " ".join(command_with_args))
         try:
             with subprocess.Popen(
                     command_with_args,
@@ -99,9 +99,9 @@ class RClone:
                     stderr=subprocess.PIPE) as proc:
                 (out, err) = proc.communicate()
 
-                self.log.debug(out)
+                logging.debug(out)
                 if err:
-                    self.log.warning(err.decode("utf-8").replace("\\n", "\n"))
+                    logging.warning(err.decode("utf-8").replace("\\n", "\n"))
 
                 return {
                     "code": proc.returncode,
@@ -109,13 +109,13 @@ class RClone:
                     "error": err
                 }
         except FileNotFoundError as not_found_e:
-            self.log.error("Executable not found. %s", not_found_e)
+            logging.error("Executable not found. %s", not_found_e)
             return {
                 "code": -20,
                 "error": not_found_e
             }
         except Exception as generic_e:
-            self.log.exception("Error running command. Reason: %s", generic_e)
+            logging.exception("Error running command. Reason: %s", generic_e)
             return {
                 "code": -30,
                 "error": generic_e
@@ -140,7 +140,7 @@ class RClone:
             # save the configuration in a temporary file
             with tempfile.NamedTemporaryFile(mode='wt', delete=True) as cfg_file:
                 # cfg_file is automatically cleaned up by python
-                self.log.debug("rclone config: ~%s~", self.cfg)
+                logging.debug("rclone config: ~%s~", self.cfg)
                 cfg_file.write(self.cfg)
                 cfg_file.flush()
                 command_with_args += ["--config",cfg_file.name]
