@@ -23,6 +23,9 @@ A Python wrapper for rclone.
 import logging
 import subprocess
 import tempfile
+import getpass
+from pathlib import Path
+
 
 logger = logging.getLogger("RClone")
 if not logger.hasHandlers():
@@ -33,6 +36,7 @@ if not logger.hasHandlers():
 
 
 
+DEFAULT_RCLONE_CONFIG=Path(f"C:/Users/{getpass.getuser()}/.config/rclone/rclone.conf")
 
 
 
@@ -41,7 +45,7 @@ class RClone(object):
     Wrapper class for rclone.
     """
 
-    def __init__(self, config=None,verbose=True,dryrun=False):
+    def __init__(self, verbose=True, dryrun=False, config=DEFAULT_RCLONE_CONFIG):
         self.config = config
         self.verbose = verbose
         self.dryrun = dryrun
@@ -49,27 +53,29 @@ class RClone(object):
 
     @property
     def config(self):
-        return self._config
+        return getattr(self, "_config")
 
     @config.setter
     def config(self, value=None):
-        self._config = value
+        setattr(self, "_config", value)
 
     @property
     def verbose(self):
-        return self._verbose
+        return getattr(self, "_verbose")
 
     @verbose.setter
-    def verbose(self, value = True):
-        self._verbose = value
+    def verbose(self, value=True):
+        setattr(self, "_verbose", value)
+
 
     @property
     def dryrun(self):
-        return self._dryrun
+        return getattr(self, "_dryrun")
 
     @dryrun.setter
     def dryrun(self, value=False):
-        self._dryrun = value
+        setattr(self, "_dryrun", value)
+
 
     def configure(self, cfg):
         """
@@ -129,9 +135,11 @@ class RClone(object):
         """
 
         command_with_args = ["rclone", command] + extra_args
-        if self.dryrun == True:
+
+        if self.dryrun:
             command_with_args.append("--dry-run")
-        if self.verbose == True:
+
+        if self.verbose:
             command_with_args.append("-v")
 
         if self.config and isinstance(self.config, str):
@@ -141,7 +149,7 @@ class RClone(object):
                 logging.debug("rclone config: ~%s~", self.cfg)
                 cfg_file.write(self.cfg)
                 cfg_file.flush()
-                command_with_args += ["--config",cfg_file.name]
+                command_with_args += ["--config", cfg_file.name]
                 command_result = self._execute(command_with_args)
                 cfg_file.close()
 
@@ -149,7 +157,6 @@ class RClone(object):
             command_result = self._execute(command_with_args)
 
         return command_result
-
 
     def copy(self, source, dest, flags=[]):
         """

@@ -23,6 +23,9 @@
 [![Build Status](https://travis-ci.org/ddragosd/python-rclone.svg?branch=master)](https://travis-ci.org/ddragosd/python-rclone)
 
 A Python wrapper for [rclone](https://rclone.org/).
+This is a fork of https://github.com/ddragosd/python-rclone. 
+Main change from that work is there is no longer a requirement to pass a custom configuration - though it is still optional. 
+
 
 `rclone` must be already [installed](https://rclone.org/install/) and discoverable in `$PATH`. 
 
@@ -32,12 +35,18 @@ Work in progress. Experimental.
 ## Usage
 
 ```python
-import rclone
+from rclone import RClone
 
+rclone = RClone()
+
+
+# configuration can now be passed as an optional keyword argument
 cfg = """[local]
 type = local
 nounc = true"""
-result = rclone.with_config(cfg).listremotes()
+
+rclone = RClone(config=cfg)
+result = rclone.listremotes()
 
 print(result.get('out'))
 # b'local:\n'
@@ -59,12 +68,7 @@ print(result.get('error'))
 Even if not all `rclone` commands have been exposed, it's possible to invoke any command using `run_cmd` method directly, as shown in the example bellow:
 
 ```python
-import rclone
-
-cfg = """[local]
-type = local
-nounc = true"""
-result = rclone.with_config(cfg).run_cmd(command="lsd", extra_args=["local:/tmp", "-v", "--dry-run"])
+result = rclone.run_cmd(command="lsd", extra_args=["local:/tmp", "-v", "--dry-run"])
 ```
 
 ### Logging and Debugging
@@ -77,12 +81,6 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s %(name)s [%(levelname)s]: %(message)s")
 
-import rclone
-
-cfg = """[local]
-type = local
-nounc = true"""
-result = rclone.with_config(cfg).listremotes()
 ```
 
 ## Developer guide
