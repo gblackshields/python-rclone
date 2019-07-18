@@ -1,5 +1,5 @@
 """
-A Python wrapper for rclone.
+A very basic Python wrapper for rclone.
 """
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
@@ -22,10 +22,7 @@ A Python wrapper for rclone.
 
 import logging
 import subprocess
-import tempfile
-import getpass
-from pathlib import Path
-
+import shlex
 
 logger = logging.getLogger("RClone")
 if not logger.hasHandlers():
@@ -35,196 +32,110 @@ if not logger.hasHandlers():
     logger.addHandler(ch)
 
 
-
-DEFAULT_RCLONE_CONFIG=Path(f"C:/Users/{getpass.getuser()}/.config/rclone/rclone.conf")
-
-
-
-class RClone(object):
+def execute(command, options=[]):
     """
-    Wrapper class for rclone.
+    Execute the given `command_with_args` using Popen
+
+    Args:
+        - command_with_args (list) :
+            An array with the command to execute, and its arguments.
+            Each argument is given as a new element in the list.
     """
 
-    def __init__(self, verbose=True, dryrun=False, config=DEFAULT_RCLONE_CONFIG):
-        self.config = config
-        self.verbose = verbose
-        self.dryrun = dryrun
+    chopped = shlex.split(command) + options
+    logging.debug(f'command to be executed : {" ".join(chopped)}')
 
+    try:
+        with subprocess.Popen(
+                chopped,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE) as proc:
+            (out, err) = proc.communicate()
 
-    @property
-    def config(self):
-        return getattr(self, "_config")
+            logging.debug(out)
 
-    @config.setter
-    def config(self, value=None):
-        setattr(self, "_config", value)
+            if err:
+                logging.warning(err.decode("utf-8").replace("\\n", "\n"))
 
-    @property
-    def verbose(self):
-        return getattr(self, "_verbose")
-
-    @verbose.setter
-    def verbose(self, value=True):
-        setattr(self, "_verbose", value)
-
-
-    @property
-    def dryrun(self):
-        return getattr(self, "_dryrun")
-
-    @dryrun.setter
-    def dryrun(self, value=False):
-        setattr(self, "_dryrun", value)
-
-
-    def configure(self, cfg):
-        """
-        :param cfg: use custom configuration (system config will not be used)
-        :return:
-        """
-        self.config = cfg
-
-
-
-    def _execute(self, command_with_args):
-        """
-        Execute the given `command_with_args` using Popen
-
-        Args:
-            - command_with_args (list) : An array with the command to execute,
-                                         and its arguments. Each argument is given
-                                         as a new element in the list.
-        """
-        logging.debug("Invoking : %s", " ".join(command_with_args))
-        try:
-            with subprocess.Popen(
-                    command_with_args,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE) as proc:
-                (out, err) = proc.communicate()
-
-                logging.debug(out)
-                if err:
-                    logging.warning(err.decode("utf-8").replace("\\n", "\n"))
-
-                return {
-                    "code": proc.returncode,
-                    "out": out,
-                    "error": err
-                }
-        except FileNotFoundError as not_found_e:
-            logging.error("Executable not found. %s", not_found_e)
             return {
-                "code": -20,
-                "error": not_found_e
+                "code": proc.returncode,
+                "out": out,
+                "error": err
             }
-        except Exception as generic_e:
-            logging.exception("Error running command. Reason: %s", generic_e)
-            return {
-                "code": -30,
-                "error": generic_e
-            }
+    except FileNotFoundError as not_found_e:
+        logging.error("Executable not found. %s", not_found_e)
+        return {
+            "code": -20,
+            "error": not_found_e
+        }
+    except Exception as generic_e:
+        logging.exception("Error running command. Reason: %s", generic_e)
+        return {
+            "code": -30,
+            "error": generic_e
+        }
 
-    def run_cmd(self, command, extra_args=[]):
-        """
-        Execute rclone command
+def copy(source, dest, options=[]):
+    """
+    copy data from source to destination.
 
-        Args:
-            - command (string): the rclone command to execute.
-            - extra_args (list): extra arguments to be passed to the rclone command
-        """
+    :param source: string in the rclone format source:path
+    :param dest: string in the rclone format dest:path
+    :param options: any optional flags that will be passed to rclone
+    :return:
+    """
+    return execute(f"rclone copy {source} {dest}", options=options)
+    
 
-        command_with_args = ["rclone", command] + extra_args
+def move(source, dest, options=[]):
+    """
+    move data from source to destination.
 
-        if self.dryrun:
-            command_with_args.append("--dry-run")
+    :param source: string in the rclone format source:path
+    :param dest: string in the rclone format dest:path
+    :param options: any optional flags that will be passed to rclone
+    :return:
+    """
+    return execute(f"rclone move {source} {dest}", options=options)
 
-        if self.verbose:
-            command_with_args.append("-v")
 
-        if self.config and isinstance(self.config, str):
-            # save the configuration in a temporary file
-            with tempfile.NamedTemporaryFile(mode='wt', delete=True) as cfg_file:
-                # cfg_file is automatically cleaned up by python
-                logging.debug("rclone config: ~%s~", self.cfg)
-                cfg_file.write(self.cfg)
-                cfg_file.flush()
-                command_with_args += ["--config", cfg_file.name]
-                command_result = self._execute(command_with_args)
-                cfg_file.close()
+def sync(source, dest, options=[]):
+    """
+    sync data between source and destination.
 
-        else:
-            command_result = self._execute(command_with_args)
+    :param source: string in the rclone format source:path
+    :param dest: string in the rclone format dest:path
+    :param options: any optional flags that will be passed to rclone
+    :return:
+    """
+    return execute(f"rclone sync {source} {dest}", options=options)
 
-        return command_result
 
-    def copy(self, source, dest, flags=[]):
-        """
-        Executes: rclone copy source:path dest:path [flags]
+def size(target, options = []):
+    """
+    return the size of a target folder .
 
-        Args:
-        - source (string): A string "source:path"
-        - dest (string): A string "dest:path"
-        - flags (list): Extra flags as per `rclone copy --help` flags.
-        """
-        return self.run_cmd(command="copy", extra_args=[source] + [dest] + flags)
+    :param target: string in the rclone format source:path
+    :param options: any optional flags that will be passed to rclone
+    :return:
+    """
+    return execute(f"rclone size {target}", options=options)
 
-    def move(self, source, dest, flags=[]):
-        """
-        Executes: rclone copy source:path dest:path [flags]
 
-        Args:
-        - source (string): A string "source:path"
-        - dest (string): A string "dest:path"
-        - flags (list): Extra flags as per `rclone copy --help` flags.
-        """
-        return self.run_cmd(command="move", extra_args=[source] + [dest] + flags)
+def listremotes(options=[]):
+    return execute(f"rclone listremotes", options=options)
 
-    def sync(self, source, dest, flags=[]):
-        """
-        Executes: rclone sync source:path dest:path [flags]
 
-        Args:
-        - source (string): A string "source:path"
-        - dest (string): A string "dest:path"
-        - flags (list): Extra flags as per `rclone sync --help` flags.
-        """
-        return self.run_cmd(command="sync", extra_args=[source] + [dest] + flags)
+def ls(target, options = []):
+    return execute(f"rclone ls {target}", options=options)
 
-    def listremotes(self, flags=[]):
-        """
-        Executes: rclone listremotes [flags]
 
-        Args:
-        - flags (list): Extra flags as per `rclone listremotes --help` flags.
-        """
-        return self.run_cmd(command="listremotes", extra_args=flags)
+def lsjson(target, options = []):
+    return execute(f"rclone lsjson {target}", options=options)
 
-    def ls(self, dest, flags=[]):
-        """
-        Executes: rclone ls remote:path [flags]
 
-        Args:
-        - dest (string): A string "remote:path" representing the location to list.
-        """
-        return self.run_cmd(command="ls", extra_args=[dest] + flags)
+def delete(target, options=[]):
+    return execute(f"rclone delete {target}", options=options)
 
-    def lsjson(self, dest, flags=[]):
-        """
-        Executes: rclone lsjson remote:path [flags]
-
-        Args:
-        - dest (string): A string "remote:path" representing the location to list.
-        """
-        return self.run_cmd(command="lsjson", extra_args=[dest] + flags)
-
-    def delete(self, dest, flags=[]):
-        """
-        Executes: rclone delete remote:path
-
-        Args:
-        - dest (string): A string "remote:path" representing the location to delete.
-        """
-        return self.run_cmd(command="delete", extra_args=[dest] + flags)
 
 
